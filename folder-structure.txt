@@ -1,0 +1,61 @@
+src/
+  features/                    # Feature-based modules
+    auth/
+      components/
+        LoginForm.js
+        RegisterForm.js
+      hooks/
+        useAuth.js
+        useLogin.js
+      services/
+        authService.js
+      types/
+        auth.types.ts
+      utils/
+        validatePassword.js
+      index.js                 # Public API
+
+    todos/
+      components/
+        TodoList.js
+        TodoItem.js
+        CreateTodoForm.js
+      hooks/
+        useTodos.js
+        useTodoForm.js
+      services/
+        todoService.js
+      index.js
+
+    profile/
+      components/
+        ProfileCard.js
+      hooks/
+        useProfile.js
+      index.js
+
+  shared/                      # Shared across features
+    components/
+      Button/
+        Button.js
+        Button.test.js
+        Button.css
+      Card/
+      Modal/
+    hooks/
+      useModal.js
+      useDebounce.js
+    utils/
+      formatDate.js
+      api.js
+    types/
+      common.types.ts
+
+  pages/                       # Route components (Next.js style)
+    HomePage.js
+    DashboardPage.js
+
+  app/                         # App initialization
+    App.js
+    routes.js
+    providers.js

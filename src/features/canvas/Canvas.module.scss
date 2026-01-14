@@ -1,0 +1,21 @@
+.Outline {
+  transform-box: fill-box;  // ← Используем границы элемента
+  transform-origin: center; // ← Теперь работает относительно элемента!
+
+  animation: outline-animation 2s infinite linear;
+}
+
+@keyframes outline-animation {
+  0% {
+    scale: 1;
+    rotate: 0deg;
+  }
+  50% {
+    rotate: 180deg;
+    scale: 1.2;
+  }
+  100% {
+    scale: 1;
+    rotate: 360deg;
+  }
+}
