@@ -10,6 +10,9 @@ export const routes: RouteObject[] = [
     element: <Main/>
   },
   {
+
+  },
+  {
     path: "/canvas",
     element: <CanvasPage/>
   },

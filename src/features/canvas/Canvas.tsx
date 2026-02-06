@@ -4,11 +4,48 @@ import classes from './Canvas.module.scss';
 import { cn } from "@/shared/utils";
 import { useWindowPosition, useKeyboardMovement } from "@/shared/hooks";
 import type {Point} from "@/shared/types";
+import {socket} from "@/shared/api/socket.ts";
+import {useThrottleFn} from "@/shared/hooks/useThrottleFn.ts";
 
+interface Props {
+  roomId: string;
+  canvasColor?: string;
+}
 
-
-export const Canvas = () => {
+export const Canvas = ({ roomId, canvasColor }: Props) => {
+  const [points, setPoints] = useState<Point[]>([]);
   const [activePointId, setActivePointId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const onLoadRoom = (serverPoints: Point[]) => {
+      setPoints(serverPoints);
+      setActivePointId(serverPoints[0]?.id ?? null);
+    };
+    const onPointCreated = (p: Point) => {
+      setPoints((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
+    }
+    const onPointUpdated = (p: Point) => {
+      setPoints((prev) => prev.map((x) => (x.id === p.id ? p : x)));
+    };
+    const onRoomNotFound = () => {
+      console.log("room_not_found");
+    };
+
+    socket.on("load_room", onLoadRoom);
+    socket.on("point_created", onPointCreated);
+    socket.on("point_updated", onPointUpdated);
+    socket.on("room_not_found", onRoomNotFound);
+
+    socket.emit("join_room", roomId);
+
+    return () => {
+      socket.off("load_room", onLoadRoom);
+      socket.off("point_created", onPointCreated);
+      socket.off("point_updated", onPointUpdated);
+      socket.off("room_not_found", onRoomNotFound);
+    }
+  }, [roomId]);
+
   const windowPosition = useWindowPosition({ refreshRate: 50 });
   const velocity = useKeyboardMovement({
     // speed: 300,
@@ -19,23 +56,16 @@ export const Canvas = () => {
 
   const [isDebugShown, setIsDebugShown] = useState(false);
 
-  const [points, setPoints] = useState<Point[]>([
-    {
-      id: '1',
-      screenX: windowPosition.screenX + 300,
-      screenY: windowPosition.screenY + 300,
-      color: 'red'
-    },
-    {
-      id: '2',
-      screenX: windowPosition.screenX + 600,
-      screenY: windowPosition.screenY + 600,
-      color: 'blue'
-    }
-  ]);
 
+
+  const emitPointUpdate = useThrottleFn(
+    (p: Point) => socket.emit("update_point", { roomId, point: p }),
+    0
+  );
   // Обновляем ref при изменении velocity
   velocityRef.current = velocity;
+
+  const lastSentRef = useRef(0);
 
   useEffect(() => {
     if (!activePointId) return;
@@ -44,15 +74,22 @@ export const Canvas = () => {
       const vel = velocityRef.current;
 
       if (vel.x !== 0 || vel.y !== 0) {
-        setPoints(prev => prev.map(p =>
-          p.id === activePointId
-            ? {
-              ...p,
-              screenX: p.screenX + vel.x,
-              screenY: p.screenY + vel.y
-            }
-            : p
-        ));
+        setPoints((prev) => {
+          const next = prev.map((p) =>
+            p.id === activePointId
+              ? { ...p, screenX: p.screenX + vel.x, screenY: p.screenY + vel.y }
+              : p
+          );
+
+          const now = performance.now();
+          if (now - lastSentRef.current > 50) { // ~20 updates/sec
+            lastSentRef.current = now;
+            const updated = next.find((p) => p.id === activePointId);
+            if (updated) emitPointUpdate(updated);
+          }
+
+          return next;
+        });
       }
 
       rafId.current = requestAnimationFrame(animate);
@@ -60,9 +97,9 @@ export const Canvas = () => {
 
     const rafId = { current: 0 };
     rafId.current = requestAnimationFrame(animate);
-
     return () => cancelAnimationFrame(rafId.current);
-  }, [activePointId]);
+  }, [activePointId, roomId]);
+
 
   const getViewportCoords = (point: Point) => ({
     x: point.screenX - windowPosition.screenX,
@@ -76,12 +113,16 @@ export const Canvas = () => {
       id: crypto.randomUUID(),
       screenX: windowPosition.screenX + e.clientX,
       screenY: windowPosition.screenY + e.clientY,
-      color: "#000000".replace(/0/g, () => (~~(Math.random() * 16)).toString(16))
+      color: "#000000".replace(/0/g, () => (~~(Math.random() * 16)).toString(16)),
     };
 
-    setPoints(prev => [...prev, newPoint]);
+    // optimistic UI
+    setPoints((prev) => [...prev, newPoint]);
     setActivePointId(newPoint.id);
+
+    socket.emit("create_point", { roomId, point: newPoint });
   };
+
 
   const handlePointClick = (
     pointId: string,
@@ -146,6 +187,9 @@ export const Canvas = () => {
         width="100%"
         height="100%"
         className="outline-none"
+        style={{
+          background: canvasColor ?? "unset"
+        }}
         onClick={handleCanvasClicked}
       >
         <defs>
