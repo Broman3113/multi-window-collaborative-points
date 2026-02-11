@@ -1,15 +1,11 @@
-import {createBrowserRouter, type RouteObject} from "react-router-dom";
-import {Main} from "@/pages/main";
+import {createBrowserRouter, Navigate, type RouteObject} from "react-router-dom";
 import {RoomsPage} from "@/pages/rooms/RoomsPage.tsx";
 import {RoomPage} from "@/pages/room/RoomPage.tsx";
 
 export const routes: RouteObject[] = [
   {
     path: "/",
-    element: <Main/>
-  },
-  {
-
+    element: <Navigate to={"/rooms"}/>
   },
   {
     path: "/rooms",
